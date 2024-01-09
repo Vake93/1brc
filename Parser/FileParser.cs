@@ -118,10 +118,9 @@ internal sealed class FileParser : IDisposable
             var strPtr = _memoryMappedFilePointer.GetPointer(chunk, position);
             var station = new Utf8String(strPtr, delimiterIndex);
 
+            var measurementEnd = hasCarriageReturn ? lineEndIndex - 1 : lineEndIndex;
             var measurement = DoubleParser.ParseUtf8(
-                hasCarriageReturn
-                    ? fileSpan[(delimiterIndex + 1)..(lineEndIndex - 1)]
-                    : fileSpan[(delimiterIndex + 1)..lineEndIndex]
+                fileSpan[(delimiterIndex + 1)..measurementEnd]
             );
 
             ref var result = ref CollectionsMarshal.GetValueRefOrAddDefault(
@@ -139,11 +138,12 @@ internal sealed class FileParser : IDisposable
         return results;
     }
 
-    private SortedList<string, string> AggregatedResults(
+    private static SortedList<string, string> AggregatedResults(
         Dictionary<Utf8String, Result>[] processResults
     )
     {
         var aggregatedResults = new SortedList<string, string>(DefaultCapacity);
+
         var finalResult = processResults[0];
         var otherResults = processResults[1..];
 
@@ -192,7 +192,12 @@ internal sealed class FileParser : IDisposable
         return stringBuilder.ToString();
     }
 
-    private sealed record Chunk(long Start, int Length);
+    private readonly struct Chunk(long start, int length)
+    {
+        public readonly long Start = start;
+
+        public readonly int Length = length;
+    }
 
     private sealed unsafe class MemoryMappedFilePointer(byte* pointer)
     {

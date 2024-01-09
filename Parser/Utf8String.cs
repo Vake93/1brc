@@ -8,7 +8,8 @@ internal readonly unsafe struct Utf8String(byte* pointer, int length) : IEquatab
 
     public override bool Equals(object? obj) => obj is Utf8String other && Equals(other);
 
-    public override string ToString() => Encoding.UTF8.GetString(new ReadOnlySpan<byte>(_pointer, _length));
+    public override string ToString() =>
+        Encoding.UTF8.GetString(new ReadOnlySpan<byte>(_pointer, _length));
 
     public bool Equals(Utf8String other)
     {
@@ -22,28 +23,26 @@ internal readonly unsafe struct Utf8String(byte* pointer, int length) : IEquatab
         var a = _pointer;
         var b = other._pointer;
 
-        while (length >= 4)
+        while (length >= sizeof(int))
         {
             if (*(int*)a != *(int*)b)
             {
                 return false;
             }
-
-            a += 4;
-            b += 4;
-            length -= 4;
+            a += sizeof(int);
+            b += sizeof(int);
+            length -= sizeof(int);
         }
 
-        if (length >= 2)
+        if (length >= sizeof(short))
         {
             if (*(short*)a != *(short*)b)
             {
                 return false;
             }
-
-            a += 2;
-            b += 2;
-            length -= 2;
+            a += sizeof(short);
+            b += sizeof(short);
+            length -= sizeof(short);
         }
 
         if (length > 0)
@@ -60,24 +59,20 @@ internal readonly unsafe struct Utf8String(byte* pointer, int length) : IEquatab
     public override int GetHashCode()
     {
         var ptr = _pointer;
+        var hash = (uint)0;
 
-        var hash1 = (5381 << 16) + 5381;
-        var hash2 = hash1;
+        if (_length > 0)
+            hash = unchecked((hash * 31) + *ptr++);
 
-        for (var i = 0; i < _length; ++i)
-        {
-            var c = *ptr++;
-            hash1 = unchecked((hash1 << 5) + hash1) ^ c;
+        if (_length > 1)
+            hash = unchecked((hash * 31) + *ptr++);
 
-            if (++i >= _length)
-            {
-                break;
-            }
+        if (_length > 2)
+            hash = unchecked((hash * 31) + *ptr++);
 
-            c = *ptr++;
-            hash2 = unchecked((hash2 << 5) + hash2) ^ c;
-        }
+        if (_length > 3)
+            hash = unchecked((hash * 31) + *ptr++);
 
-        return unchecked(hash1 + (hash2 * 1566083941));
+        return (int)hash;
     }
 }
